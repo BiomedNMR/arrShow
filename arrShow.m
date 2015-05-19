@@ -30,7 +30,7 @@ classdef arrShow < handle
         window          = [];               % image windowing object
         roi             = [];               % region of interest object
         imageText       = [];               % image text object
-        pixelMarks      = [];               % pixel markers
+        markers         = [];               % pixel markers
         
         UserData        = [];               % this is not used within this class
         % and may be set and
@@ -350,10 +350,7 @@ classdef arrShow < handle
             
             % info textbox object
             obj.infotext = asInfoTextClass(obj.cph, obj.INFOTEXT_POS);
-            
-            % pixel markers
-            obj.pixelMarks = asPixelMarkClass(@obj.updFig);
-            
+                        
             % complex part selector (the dropdown menu on the top right of
             % the arrayShow window)
             obj.complexSelect = asCmplxChooserClass(...
@@ -426,6 +423,11 @@ classdef arrShow < handle
             if ~isempty(selectedImageStr)
                 obj.selection.setValue(selectedImageStr,true,true,true);
             end
+            
+            
+            % pixel markers
+            obj.markers = asMarkerClass(obj.selection);
+            
             
             % if specific figure position is given, resize the gui
             if ~isempty(userFigurePosition)
@@ -3421,7 +3423,7 @@ classdef arrShow < handle
             end
             
             % update pixel markers
-            obj.pixelMarks.updateHandlesAndSelection(allAxes, );
+            obj.markers.updateAxesHandles(allAxes);
             
             % insert colorbar (if the respective button is enabled)
             if strcmp( get(obj.tbh.colorbar,'State'), 'on')
