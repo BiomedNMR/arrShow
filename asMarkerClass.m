@@ -9,14 +9,26 @@ classdef asMarkerClass < handle
         markerHandles = {};
         selection = [];
         color = 'yellow';
+        
+        uiMenuHandle = []; % context menu handle
     end
     
     methods (Access = public)
-        function obj = asMarkerClass(selection, markerPositions)
+        
+        function obj = asMarkerClass(selection, markerPositions, uiMenuBase)
             obj.selection = selection;
             if nargin > 1 && ~isempty(markerPositions)
-                obj.pos = markerPositions;
+                obj.pos = obj.parsePos(markerPositions);
             end
+            
+            % populate ui menu
+            obj.uiMenuHandle.base = uiMenuBase;
+            obj.uiMenuHandle.showMarker = uimenu(uiMenuBase,'Label','Show' ,...
+                'callback',@(src,evnt)obj.toggleVisibility(),...
+                'checked','on');
+            uimenu(uiMenuBase,'Label','Clear' ,...
+                'callback',@(src,evnt)obj.clear(),'separator','on');
+            
         end            
         
         function updateAxesHandles(obj, axesHandles)
@@ -35,14 +47,130 @@ classdef asMarkerClass < handle
                     pos = pos';
                 end
                 
-                % store positions in the object properties
-                obj.pos = [obj.pos, pos];
+                if iscell(obj.pos)
+                    disp('implement me');
+                else
+                    % store positions in the object properties
+                    obj.pos = [obj.pos, pos];
+                end                
+                
             end
             obj.draw();            
         end
         
+        function bool = getVisibility(obj)
+            bool = arrShow.onOffToBool(get(obj.uiMenuHandle.showMarker,'checked'));            
+        end
+        
+        function toggleVisibility(obj)
+            bool = obj.getVisibility;
+            obj.setVisibility(~bool);
+        end
+        
+        function setVisibility(obj, toggle)
+            set(obj.uiMenuHandle.showMarker,'checked', arrShow.boolToOnOff(toggle));
+            if toggle
+                obj.draw();
+            else
+                obj.deleteMarkers();
+            end
+        end
+        
         function pos = getPositions(obj)
             pos = obj.pos;
+        end
+
+        function addPositionsToCurrentFrames(obj, newPos)
+            if iscell(newPos)
+                disp('multi frames are not implemented yet');
+                return
+            end
+            
+            % assure that the new positions are in a legal format
+            newPos = obj.parsePos(newPos);
+            
+            % get the current positions in the current frames
+            currPos = obj.getPositionsInCurrentFrames();
+            
+            if isempty(currPos)
+                currPos = newPos;
+            else                       
+                if iscell(newPos)                
+                    if length(currPos) ~= length(newPos)
+                        disp('Length of the position cell vector has to match the number of selected frames');
+                        return;
+                    end
+                    % add the new positions to all selected frames
+                    for i = 1 : length(currPos)
+                        currPos{i} = [currPos{i}, newPos{i}];
+                    end                                
+                else
+                    % add the the same new positions to all selected frames
+                    for i = 1 : length(currPos)
+                        currPos{i} = [currPos{i}, newPos];
+                    end                
+                end
+            end   
+            
+            % set the new positions
+            obj.setPositionsInCurrentFrames(currPos, false);
+            
+        end
+        
+        function setPositionsInCurrentFrames(obj, newPos, parsePos)
+            if nargin < 3 || isempty(parsePos)
+                parsePos = true;
+            end                
+            
+            if parsePos
+                newPos = obj.parsePos(newPos);
+            end           
+            if ~iscell(newPos)
+                newPos = {newPos};
+            end
+            
+            if isempty(obj.pos)
+                % try to initialize a position cell array...
+                
+                % get the data size
+                dataDims = obj.selection.getDimensions;
+                
+                % ignore the colon dimension by default
+                obj.ignoredDimensions = obj.selection.getColonDims;
+                dataDims(obj.ignoredDimensions) = 1;
+                obj.pos = cell(dataDims);                
+            end
+            
+            % get the subscripts for the selected frames
+            S.subs = obj.selection.getValueAsCell(false);
+            S.type = '()'; 
+
+            % set selection in the ignored dimensions to 1
+            S.subs(obj.ignoredDimensions) = repmat({1},[1,length(obj.ignoredDimensions)]);
+                
+            % update the marker positions for the selected frames
+            obj.pos = subsasgn(obj.pos,S,newPos);
+            
+            % "re-draw"
+            obj.deleteMarkers()
+            obj.draw();
+        
+        end
+        
+        function pos = getPositionsInCurrentFrames(obj)
+            if iscell(obj.pos)
+                % get selected frames
+                S.subs = obj.selection.getValueAsCell(false);
+                S.type = '()'; 
+                
+                % set selection in the ignored dimensions to 1
+                S.subs(obj.ignoredDimensions) = repmat({1},[1,length(obj.ignoredDimensions)]);
+                
+                % get the marker positions for the selected frames
+                pos = squeeze(subsref(obj.pos,S));
+            else                
+                pos = obj.pos;
+            end
         end
         
         function markerHandle = getMarkerHandles(obj)
@@ -53,6 +181,73 @@ classdef asMarkerClass < handle
             if nargin < 2
                 pos = [];
             end
+            
+            % parse and store positions in the object properties
+            obj.pos = obj.parsePos(pos);            
+            obj.draw();            
+        end
+        
+        function clear(obj)
+            % permanently removes all marker objects and positions            
+            obj.deleteMarkers();
+            obj.pos = [];
+        end
+        
+        function draw(obj)           
+
+            if isempty(obj.pos) || obj.getVisibility == false
+                return;
+            end
+            
+            if iscell(obj.pos)                
+                % get the marker positions for the selected frames
+                selPos = obj.getPositionsInCurrentFrames();
+                
+                if length(selPos) ~= length(obj.axesHandles)
+                    disp('Cannot show markers for the current dimensions');
+                else
+                    % loop over all axes and create the markers
+                    nAxes = length(obj.axesHandles);
+                    obj.markerHandles = cell(nAxes,1);
+                    for i = 1 : nAxes
+                        obj.markerHandles{i} = obj.drawAtAxes(obj.axesHandles(i), selPos{i});
+                    end
+                end
+                
+            else
+                % we have positions for a single frame. Apply it on all
+                % axes...
+                
+                nAxes = length(obj.axesHandles);
+                obj.markerHandles = cell(nAxes);
+                % ...loop over availables axes
+                for i = 1 : nAxes
+                    ah = obj.axesHandles(i);
+                    obj.markerHandles{i} = obj.drawAtAxes(ah, obj.pos);
+                end
+            end
+        end
+    end
+    
+    methods (Access = protected)
+        function markerHandles = drawAtAxes(obj, ah, pos)
+            nMarkersPerAxes = size(pos,2);
+            markerHandles = cell(nMarkersPerAxes,1);
+            for i = 1 : nMarkersPerAxes
+                P = pos(:,i);
+%                 markerHandles{i} = impoint(ah,P(2),P(1),'color',obj.color);
+                markerHandles{i} = impoint(ah,P(2),P(1));
+            end
+        end
+        
+        function deleteMarkers(obj)
+            for i = 1 : length(obj.markerHandles)                
+                cellfun(@delete,obj.markerHandles{i});
+            end
+            obj.markerHandles = {};                        
+        end
+        
+        function pos = parsePos(obj, pos)
             if iscell(pos)
                 % check the size of the cell array
                 dataDims = obj.selection.getDimensions;
@@ -85,80 +280,19 @@ classdef asMarkerClass < handle
                         pos = reshape(pos,[1,1,numel(pos)]);
                     else
                         error('lala');
-                    end
-                    
-                end                                                            
-            end
-            
-            % store positions in the object properties
-            obj.pos = pos;            
-            obj.draw();            
-        end
-        
-        function clear(obj)
-            for i = 1 : length(obj.markerHandles)                
-                cellfun(@delete,obj.markerHandles{i});
-            end
-            obj.markerHandles = {};            
-            obj.pos = [];
-        end
-        
-        function draw(obj)           
-
-            if isempty(obj.pos)
-                return;
-            end
-            
-            if iscell(obj.pos)
-                % get selected frames
-                S.subs = obj.selection.getValueAsCell(false);
-                S.type = '()'; 
-                
-                % set selection in the ignored dimensions to 1
-                S.subs(obj.ignoredDimensions) = repmat({1},[1,length(obj.ignoredDimensions)]);
-                
-                % get the marker positions for the selected frames
-                selPos = squeeze(subsref(obj.pos,S));
-                
-                if length(selPos) ~= length(obj.axesHandles)
-                    disp('Cannot show markers for the current dimensions');
-                else
-                    % loop over all axes and create the markers
-                    nAxes = length(obj.axesHandles);
-                    obj.markerHandles = cell(nAxes,1);
-                    for i = 1 : nAxes
-                        obj.markerHandles{i} = obj.drawAtAxes(obj.axesHandles(i), selPos{i});
-                    end
+                    end                    
                 end
                 
+                % assure that all antries are column vectors
+                for i = 1 : length(pos)
+                    if isrow(pos{i})
+                        pos{i} = pos{i}';
+                    end
+                end
             else
-                % we have positions for a single frame. Apply it on all
-                % axes...
-                
-                nAxes = length(obj.axesHandles);
-                obj.markerHandles = cell(nAxes);
-                % ...loop over availables axes
-                for i = 1 : nAxes
-                    ah = obj.axesHandles(i);
-                    obj.markerHandles{i} = obj.drawAtAxes(ah, obj.pos);
+                if isrow(pos)
+                    pos = pos';
                 end
-            end
-        end
-    end
-    
-    methods (Access = protected)
-        function markerHandles = drawAtAxes(obj, ah, pos)
-            if isrow(pos)
-                % correct the common "input error", where pos is a row
-                % rather than a column vector
-                pos = pos';
-            end
-            nMarkersPerAxes = size(pos,2);
-            markerHandles = cell(nMarkersPerAxes,1);
-            for i = 1 : nMarkersPerAxes
-                P = pos(:,i);
-%                 markerHandles{i} = impoint(ah,P(2),P(1),'color',obj.color);
-                markerHandles{i} = impoint(ah,P(2),P(1));
             end
         end
     end
