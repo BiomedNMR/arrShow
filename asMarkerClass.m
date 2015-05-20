@@ -1,7 +1,7 @@
 classdef asMarkerClass < handle
     
     
-    properties (Access = private)        
+    properties (Access = private)
         pos = [];   % marker positions
         axesHandles = [];
         
@@ -29,13 +29,13 @@ classdef asMarkerClass < handle
             uimenu(uiMenuBase,'Label','Clear' ,...
                 'callback',@(src,evnt)obj.clear(),'separator','on');
             
-        end            
+        end
         
         function updateAxesHandles(obj, axesHandles)
             obj.axesHandles = axesHandles;
             obj.draw();
         end
-
+        
         function add(obj, pos)
             
             pos = obj.parsePos(pos);
@@ -55,7 +55,7 @@ classdef asMarkerClass < handle
                     % not, add the new positions to all frames
                     for i = 1 : length(obj.pos)
                         obj.pos{i} = [obj.pos{i}, pos];
-                    end                    
+                    end
                 end
             else
                 % ..the present positions are not cells
@@ -67,12 +67,12 @@ classdef asMarkerClass < handle
                 else
                     obj.pos = [obj.pos, pos];
                 end
-            end                                
-            obj.draw();            
+            end
+            obj.draw();
         end
         
         function bool = getVisibility(obj)
-            bool = arrShow.onOffToBool(get(obj.uiMenuHandle.showMarker,'checked'));            
+            bool = arrShow.onOffToBool(get(obj.uiMenuHandle.showMarker,'checked'));
         end
         
         function toggleVisibility(obj)
@@ -89,99 +89,94 @@ classdef asMarkerClass < handle
             end
         end
         
-        function pos = getPositions(obj)
+        function pos = get(obj)
             pos = obj.pos;
         end
-
-        function addPositionsToCurrentFrames(obj, newPos)
-            if iscell(newPos)
-                disp('multi frames are not implemented yet');
-                return
+        
+        function addToCurrentFrames(obj, newPos)
+            
+            % assure that obj.pos is initialized as a cell array
+            if ~iscell(obj.pos) || isempty(obj.pos)
+                obj.initPosCellArray();           
             end
+
+            % get the current positions in the current frames
+            currPos = obj.getInCurrentFrames();
             
             % assure that the new positions are in a legal format
-            newPos = obj.parsePos(newPos);
+            expectedNumel = length(currPos);
+            newPos = obj.parsePos(newPos, expectedNumel);
             
-            % get the current positions in the current frames
-            currPos = obj.getPositionsInCurrentFrames();
             
-            if isempty(currPos)
-                currPos = newPos;
-            else                       
-                if iscell(newPos)                
-                    if length(currPos) ~= length(newPos)
-                        disp('Length of the position cell vector has to match the number of selected frames');
-                        return;
-                    end
-                    % add the new positions to all selected frames
-                    for i = 1 : length(currPos)
-                        currPos{i} = [currPos{i}, newPos{i}];
-                    end                                
-                else
-                    % add the the same new positions to all selected frames
-                    for i = 1 : length(currPos)
-                        currPos{i} = [currPos{i}, newPos];
-                    end                
+            if iscell(newPos)
+                if length(currPos) ~= length(newPos)
+                    disp('Length of the position cell vector has to match the number of selected frames');
+                    return;
                 end
-            end   
+                % add the new positions to all selected frames
+                for i = 1 : length(currPos)
+                    currPos{i} = [currPos{i}, newPos{i}];
+                end
+            else
+                % add the the same new positions to all selected frames
+                for i = 1 : length(currPos)
+                    currPos{i} = [currPos{i}, newPos];
+                end
+            end
+            
             
             % set the new positions
-            obj.setPositionsInCurrentFrames(currPos, false);
+            obj.setInCurrentFrames(currPos, false);
             
         end
         
-        function setPositionsInCurrentFrames(obj, newPos, parsePos)
+        function setInCurrentFrames(obj, newPos, parsePos)
             if nargin < 3 || isempty(parsePos)
                 parsePos = true;
-            end                
+            end
             
+            % assure that obj.pos is initialized as a cell array
+            if ~iscell(obj.pos) || isempty(obj.pos)
+                obj.initPosCellArray();           
+            end                                   
+            
+            % get number of selected frames
             if parsePos
-                newPos = obj.parsePos(newPos);
-            end           
+                expectedNumel = numel(obj.getInCurrentFrames());
+                newPos = obj.parsePos(newPos, expectedNumel);
+            end
             if ~iscell(newPos)
                 newPos = {newPos};
-            end
-            
-            if isempty(obj.pos)
-                % try to initialize a position cell array...
-                
-                % get the data size
-                dataDims = obj.selection.getDimensions;
-                
-                % ignore the colon dimension by default
-                obj.ignoredDimensions = obj.selection.getColonDims;
-                dataDims(obj.ignoredDimensions) = 1;
-                obj.pos = cell(dataDims);                
-            end
+            end            
             
             % get the subscripts for the selected frames
             S.subs = obj.selection.getValueAsCell(false);
-            S.type = '()'; 
-
+            S.type = '()';            
+            
             % set selection in the ignored dimensions to 1
             S.subs(obj.ignoredDimensions) = repmat({1},[1,length(obj.ignoredDimensions)]);
-                
+                                    
             % update the marker positions for the selected frames
             obj.pos = subsasgn(obj.pos,S,newPos);
             
             % "re-draw"
             obj.deleteMarkers()
             obj.draw();
-        
+            
         end
         
-        function pos = getPositionsInCurrentFrames(obj)
+        function pos = getInCurrentFrames(obj)
             if iscell(obj.pos)
                 % get selected frames
                 S.subs = obj.selection.getValueAsCell(false);
-                S.type = '()'; 
+                S.type = '()';
                 
                 % set selection in the ignored dimensions to 1
                 S.subs(obj.ignoredDimensions) = repmat({1},[1,length(obj.ignoredDimensions)]);
                 
                 % get the marker positions for the selected frames
                 pos = squeeze(subsref(obj.pos,S));
-            else                
+            else
                 pos = obj.pos;
             end
         end
@@ -196,25 +191,25 @@ classdef asMarkerClass < handle
             end
             
             % parse and store positions in the object properties
-            obj.pos = obj.parsePos(pos);            
-            obj.draw();            
+            obj.pos = obj.parsePos(pos);
+            obj.draw();
         end
         
         function clear(obj)
-            % permanently removes all marker objects and positions            
+            % permanently removes all marker objects and positions
             obj.deleteMarkers();
             obj.pos = [];
         end
         
-        function draw(obj)           
-
+        function draw(obj)
+            
             if isempty(obj.pos) || obj.getVisibility == false
                 return;
             end
             
-            if iscell(obj.pos)                
+            if iscell(obj.pos)
                 % get the marker positions for the selected frames
-                selPos = obj.getPositionsInCurrentFrames();
+                selPos = obj.getInCurrentFrames();
                 
                 if length(selPos) ~= length(obj.axesHandles)
                     disp('Cannot show markers for the current dimensions');
@@ -242,58 +237,101 @@ classdef asMarkerClass < handle
         end
     end
     
-    methods (Access = protected)
+    %     methods (Access = protected)
+    %     end
+    methods (Access = private)
+        
+        function initPosCellArray(obj)
+            % try to initialize a position cell array assuming the colon
+            % dimensions as "image dimensions" and all other dimensions as
+            % frames
+            
+            
+            if iscell(obj.pos) && ~isempty(obj.pos)
+                error('obj.pos already seems to be initialized');
+            end                                   
+            
+            % get the data size
+            dataDims = obj.selection.getDimensions;
+            
+            % ignore the colon dimension by default
+            obj.ignoredDimensions = obj.selection.getColonDims;
+            dataDims(obj.ignoredDimensions) = 1;
+            
+            if isempty(obj.pos)
+                obj.pos = cell(dataDims);
+            else
+                % duplicate the position to all cell entries
+                tmpBackup = obj.pos;
+                obj.pos = cell(dataDims);
+                [obj.pos{:}] = deal(tmpBackup);
+            end
+        end
+        
         function markerHandles = drawAtAxes(obj, ah, pos)
             nMarkersPerAxes = size(pos,2);
             markerHandles = cell(nMarkersPerAxes,1);
             for i = 1 : nMarkersPerAxes
                 P = pos(:,i);
-%                 markerHandles{i} = impoint(ah,P(2),P(1),'color',obj.color);
+                %                 markerHandles{i} = impoint(ah,P(2),P(1),'color',obj.color);
                 markerHandles{i} = impoint(ah,P(2),P(1));
             end
         end
         
         function deleteMarkers(obj)
-            for i = 1 : length(obj.markerHandles)                
+            for i = 1 : length(obj.markerHandles)
                 cellfun(@delete,obj.markerHandles{i});
             end
-            obj.markerHandles = {};                        
+            obj.markerHandles = {};
         end
         
-        function pos = parsePos(obj, pos)
+        function pos = parsePos(obj, pos, expectedNumel)
+            % checks if the position vector matches the expected format.
+            % If pos is a cell array and expectedNumel is empty, the array
+            % is checked to match the data dimension.
+            % If expectedNumel is give, the pos array is just checkt for
+            % the correct number of elements.
+            
             if iscell(pos)
-                % check the size of the cell array
-                dataDims = obj.selection.getDimensions;
-                siPos = size(pos);
-                lPos = length(siPos);                                
-                
-                if lPos == length(dataDims)
-                    % define all dimensions with size == 1 as
-                    % "ignoredDimensions"
-                    obj.ignoredDimensions = find(siPos == 1);
-                    
-                    % check for unequal dimensions
-                    unequalDims = find(siPos ~= dataDims);
-                    
-                    % check, if the cell entries in the unequal dimensions
-                    % are 1
-                    if any(unequalDims ~= obj.ignoredDimensions)
-                        error('lala');
-                    end                    
-                        
+                if nargin > 2 && ~isempty(expectedNumel)
+                    if numel(pos) ~= expectedNumel
+                        error('Number of elements in the new position vector are not valid');
+                    end
                 else
-                    % ok, the dimensions of the data and the position cell
-                    % array are not equal. Check for the special case,
-                    % where the position cell array is a vector and the
-                    % data is 3d and thus can be assumed to be a stack of
-                    % images...
-                    if isvector(pos) && ...
-                            length(dataDims) == 3 &&...
-                            dataDims(3) == numel(pos)
-                        pos = reshape(pos,[1,1,numel(pos)]);
+                
+                    % check the size of the cell array
+                    dataDims = obj.selection.getDimensions;
+                    siPos = size(pos);
+                    lPos = length(siPos);
+
+                    if lPos == length(dataDims)
+                        % define all dimensions with size == 1 as
+                        % "ignoredDimensions"
+                        obj.ignoredDimensions = find(siPos == 1);
+
+                        % check for unequal dimensions
+                        unequalDims = find(siPos ~= dataDims);
+
+                        % check, if the cell entries in the unequal dimensions
+                        % are 1
+                        if any(unequalDims ~= obj.ignoredDimensions)
+                            error('lala');
+                        end
+
                     else
-                        error('lala');
-                    end                    
+                        % ok, the dimensions of the data and the position cell
+                        % array are not equal. Check for the special case,
+                        % where the position cell array is a vector and the
+                        % data is 3d and thus can be assumed to be a stack of
+                        % images...
+                        if isvector(pos) && ...
+                                length(dataDims) == 3 &&...
+                                dataDims(3) == numel(pos)
+                            pos = reshape(pos,[1,1,numel(pos)]);
+                        else
+                            error('lala');
+                        end
+                    end
                 end
                 
                 % assure that all antries are column vectors
@@ -309,4 +347,5 @@ classdef asMarkerClass < handle
             end
         end
     end
+    
 end
