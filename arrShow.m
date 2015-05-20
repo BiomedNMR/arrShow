@@ -186,6 +186,7 @@ classdef arrShow < handle
             % evaluate varagin
             CW = [];
             userFigurePosition = [];
+            selectionOffset = [];
             selectedImageStr = '';
             imageTextVal = [];
             initComplexSelect = [];
@@ -239,8 +240,9 @@ classdef arrShow < handle
                             % drawing the actual ui elements. This is
                             % currently used to create temporary object 
                             % copies which are saveable in matlab >= 2014b
-                            renderUi = option_value;
-                            
+                            renderUi = option_value;                            
+                        case 'offset' % offset to the asSelection class
+                            selectionOffset = option_value;
                         otherwise
                             error('arrShow:varargin','unknown option [%s]!\n',option);
                     end;
@@ -405,6 +407,7 @@ classdef arrShow < handle
                 'apply2allCb',@obj.applyToRelatives,...
                 'InitStrings',initStrings,...
                 'dataObject',obj.data,...
+                'offsets', selectionOffset,...
                 'sendIcon',obj.icons.send);
             obj.data.linkToSelectionClassObject(obj.selection);
             
