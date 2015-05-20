@@ -186,6 +186,7 @@ classdef arrShow < handle
             % evaluate varagin
             CW = [];
             userFigurePosition = [];
+            selectionOffset = [];
             selectedImageStr = '';
             imageTextVal = [];
             initComplexSelect = [];
@@ -233,6 +234,8 @@ classdef arrShow < handle
                             obj.userCallback =  option_value;
                         case 'useglobalarray'
                             obj.useGlobalArray = option_value;
+                        case 'offset' % offset to the asSelection class
+                            selectionOffset = option_value;
                         otherwise
                             error('arrShow:varargin','unknown option [%s]!\n',option);
                     end;
@@ -397,6 +400,7 @@ classdef arrShow < handle
                 'apply2allCb',@obj.applyToRelatives,...
                 'InitStrings',initStrings,...
                 'dataObject',obj.data,...
+                'offsets', selectionOffset,...
                 'sendIcon',obj.icons.send);
             obj.data.linkToSelectionClassObject(obj.selection);
             
