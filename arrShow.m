@@ -188,6 +188,7 @@ classdef arrShow < handle
             userFigurePosition = [];
             selectionOffset = [];
             selectedImageStr = '';
+            pixMarkers = [];
             imageTextVal = [];
             initComplexSelect = [];
             infoText = '';
@@ -235,7 +236,10 @@ classdef arrShow < handle
                         case 'useglobalarray'
                             obj.useGlobalArray = option_value;
                         case 'offset' % offset to the asSelection class
-                            selectionOffset = option_value;
+                            selectionOffset = option_value;                            
+                        case 'markers' % pixel markers
+                            pixMarkers = option_value;
+                            
                         otherwise
                             error('arrShow:varargin','unknown option [%s]!\n',option);
                     end;
@@ -481,6 +485,10 @@ classdef arrShow < handle
                 obj.updFig
             end
             
+            % write pixel markers
+            if ~isempty(pixMarkers)
+                obj.markers.set(pixMarkers);
+            end
             
             % save figure position in the object property (pixel units) and activate
             % figure resize function
