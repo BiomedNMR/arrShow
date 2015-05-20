@@ -188,6 +188,7 @@ classdef arrShow < handle
             userFigurePosition = [];
             selectionOffset = [];
             selectedImageStr = '';
+            pixMarkers = [];
             imageTextVal = [];
             initComplexSelect = [];
             infoText = '';
@@ -242,7 +243,10 @@ classdef arrShow < handle
                             % copies which are saveable in matlab >= 2014b
                             renderUi = option_value;                            
                         case 'offset' % offset to the asSelection class
-                            selectionOffset = option_value;
+                            selectionOffset = option_value;                            
+                        case 'markers' % pixel markers
+                            pixMarkers = option_value;
+                            
                         otherwise
                             error('arrShow:varargin','unknown option [%s]!\n',option);
                     end;
@@ -490,9 +494,14 @@ classdef arrShow < handle
                 end
             end
             
+            % write pixel markers
+            if ~isempty(pixMarkers)
+                obj.markers.set(pixMarkers);
+            end
+            
             if ~renderUi
                 return;
-            end
+            end            
             
             % save figure position in the object property (pixel units) and activate
             % figure resize function
