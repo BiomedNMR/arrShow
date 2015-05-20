@@ -124,6 +124,7 @@ classdef asSelectionClass < handle
                         if currColonDim ~= id
                             % deactivate old colonDim1
                             obj.vcos{i}.setColonDimTag(0, true);
+                            return;  % (don't need to check the remaining vcos)
                         end
                     end
                 end
@@ -140,6 +141,7 @@ classdef asSelectionClass < handle
                         if currColonDim ~= id
                             % deactivate old colonDim1
                             obj.vcos{i}.setColonDimTag(0, true);
+                            return;  % (don't need to check the remaining vcos)
                         end
                     end
                 end
@@ -235,6 +237,25 @@ classdef asSelectionClass < handle
                     end
                 end
             end
+        end
+        
+        function offs = getOffsets(obj)
+            noVcos = length(obj.dims);
+            offs = zeros(noVcos,1);
+            for i = 1 : noVcos
+                offs(i) = obj.vcos{i}.getOffset();
+            end            
+        end
+
+        function setOffsets(obj, offs)
+            noVcos = length(obj.dims);
+            if length(offs(:)) ~= noVcos
+                fprintf('Length of the offset vector has to be equal to the number of value changer (i.e.: %d)',noVcos);
+                return;
+            end
+            for i = 1 : noVcos
+                obj.vcos{i}.setOffset(offs(i));
+            end            
         end
         
         function setColonDimDivisor(obj,divi)
