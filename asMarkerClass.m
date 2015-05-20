@@ -37,24 +37,37 @@ classdef asMarkerClass < handle
         end
 
         function add(obj, pos)
-            if iscell(pos)
-                disp('Marker positions cannot be cells yet');
-                return;
-            else
-                % correct the common "input error", where pos is a row
-                % rather than a column vector
-                if isrow(pos)
-                    pos = pos';
-                end
-                
-                if iscell(obj.pos)
-                    disp('implement me');
+            
+            pos = obj.parsePos(pos);
+            
+            if iscell(obj.pos)
+                if iscell(pos)
+                    % if the new and the present positions are cell vectors
+                    % of the same size: just combine them
+                    if length(pos) ~= length(obj.pos)
+                        error('lalala');
+                    end
+                    for i = 1 : length(pos)
+                        obj.pos{i} = [obj.pos{i}, pos{i}];
+                    end
                 else
-                    % store positions in the object properties
+                    % if the present positions are cells and the new are
+                    % not, add the new positions to all frames
+                    for i = 1 : length(obj.pos)
+                        obj.pos{i} = [obj.pos{i}, pos];
+                    end                    
+                end
+            else
+                % ..the present positions are not cells
+                if iscell(pos)
+                    for i = 1 : length(pos)
+                        pos{i} = [obj.pos, pos{i}];
+                    end
+                    obj.pos = pos;
+                else
                     obj.pos = [obj.pos, pos];
-                end                
-                
-            end
+                end
+            end                                
             obj.draw();            
         end
         
