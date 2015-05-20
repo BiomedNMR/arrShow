@@ -426,7 +426,7 @@ classdef arrShow < handle
             
             
             % pixel markers
-            obj.markers = asMarkerClass(obj.selection);
+            obj.markers = asMarkerClass(obj.selection, pixMarkers, obj.mbh.markers);
             
             
             % if specific figure position is given, resize the gui
@@ -485,10 +485,6 @@ classdef arrShow < handle
                 obj.updFig
             end
             
-            % write pixel markers
-            if ~isempty(pixMarkers)
-                obj.markers.set(pixMarkers);
-            end
             
             % save figure position in the object property (pixel units) and activate
             % figure resize function
@@ -2628,18 +2624,22 @@ classdef arrShow < handle
             
             
             
-            % view
-            mb_view = uimenu(obj.fh,'Label','View');
+            % view --
+            mb_view = uimenu(obj.fh,'Label','View');            
+            
+            % markers
+            obj.mbh.markers = uimenu(mb_view,'Label','Markers' );                        
+            
+            % aspect ratio etc...
             obj.mbh.aspectRatio = uimenu(mb_view,'Label','Keep aspect ratio' ,...
                 'callback',@(src,evnt)obj.toggleAspectRatio(),...
-                'Checked','on');
+                'Checked','on','Separator','on');
             obj.mbh.trueSize = uimenu(mb_view,'Label','Keep true size' ,...
                 'callback',@(src,evnt)obj.toggleTrueSize(),...
                 'Checked','off');
             obj.mbh.quiver = uimenu(mb_view,'Label','Show vector plot' ,...
                 'callback',@(src,evnt)obj.toggleUseQuiver(),...
-                'Checked','off');
-            
+                'Checked','off');            
             
             % zoom
             cmh_zoom = uimenu(mb_view,'Label','Set zoom' ,...
