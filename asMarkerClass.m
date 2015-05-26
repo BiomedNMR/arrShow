@@ -303,22 +303,25 @@ classdef asMarkerClass < handle
                     dataDims = obj.selection.getDimensions;
                     siPos = size(pos);
                     lPos = length(siPos);
+                    lDat = length(dataDims);
 
-                    if lPos == length(dataDims)
-                        % define all dimensions with size == 1 as
-                        % "ignoredDimensions"
-                        obj.ignoredDimensions = find(siPos == 1);
+                    if lPos < lDat
+                        % padd all non given trailing dims with 1 to
+                        % get equal siPos und dataDims vector size
+                        siPos = [siPos, ones(1,lDat - lPos)];
+                    end
 
-                        % check for unequal dimensions
-                        unequalDims = find(siPos ~= dataDims);
+                    % define all dimensions with size == 1 as
+                    % "ignoredDimensions"
+                    obj.ignoredDimensions = find(siPos == 1);
 
-                        % check, if the cell entries in the unequal dimensions
-                        % are 1
-                        if any(unequalDims ~= obj.ignoredDimensions)
-                            error('lala');
-                        end
+                    % check for unequal dimensions
+                    unequalDims = find(siPos ~= dataDims);
 
-                    else
+                    % check, if the cell entries in the unequal dimensions
+                    % are 1
+                    if length(unequalDims) > length(obj.ignoredDimensions)||...
+                        any(unequalDims ~= obj.ignoredDimensions)
                         % ok, the dimensions of the data and the position cell
                         % array are not equal. Check for the special case,
                         % where the position cell array is a vector and the
@@ -328,9 +331,10 @@ classdef asMarkerClass < handle
                                 length(dataDims) == 3 &&...
                                 dataDims(3) == numel(pos)
                             pos = reshape(pos,[1,1,numel(pos)]);
+                            obj.ignoredDimensions = [1,2];
                         else
-                            error('lala');
-                        end
+                            error('Marker position vector has invalid dimensions');
+                        end                                                                        
                     end
                 end
                 
