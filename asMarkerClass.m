@@ -1,14 +1,27 @@
 classdef asMarkerClass < handle
-    
+    % The class manages and draws "pixel markers", i.e. it marks specific
+    % pixel positions in different slices. Its main intention is to
+    % highlight critical image regions which may contain automatically
+    % detected image reconstruction errors etc. It can also be used to
+    % highlight general pixels of interest as the e.g. max or mean.
+    %
+    % Pixel markers can be added for either all slices (by calling the .set
+    % or .add method with a matrix of pixel positions) or for individual
+    % slices (by calling the .set or .add method with a cell array of
+    % matrices of pixel positions, or by calling the .setInCurrentFrame
+    % method)
+    %
+    % The markers in the currently selected frame are drawn using the .draw
+    % method, which is called during the arrayShow updFig method.
     
     properties (Access = private)
         pos = [];   % marker positions
         axesHandles = [];
         
         ignoredDimensions = []; % dimensions where the position cell vector is 1
-        markerHandles = {};
-        selection = [];
-        color = 'yellow';
+        markerHandles = {};     % (its probably actually marker "objects" since matlab 2014b)
+        selection = [];         % the asSelectionCass (used to determine selected frames)
+        color = 'yellow';       % ...not used yet
         
         uiMenuHandle = []; % context menu handle
     end
@@ -16,6 +29,8 @@ classdef asMarkerClass < handle
     methods (Access = public)
         
         function obj = asMarkerClass(selection, markerPositions, uiMenuBase)
+            % constructor
+            
             obj.selection = selection;
             if nargin > 1 && ~isempty(markerPositions)
                 obj.pos = obj.parsePos(markerPositions);
@@ -37,6 +52,19 @@ classdef asMarkerClass < handle
         end
         
         function add(obj, pos)
+            % adds markers at positions pos.
+            % pos can be either a matrix of positions for all frames or a
+            % cell array of matrices with positions for individual frames.
+            % The cell array must have the same number of dimensions as 
+            % the arrayShow data array. The dimensions sizes must be either
+            % equal or 1. Dimensions of size 1 are ment to be used for
+            % image or colon dimensions. 
+            % 
+            % E.g.: for a stack of images or an image matrix of 
+            % 256 x 256 x 20 x 15 pixels, a cell array of size 
+            % 1 x 1 x 20 x 1 can be used to hold pixel markers that are
+            % equal for the 4th dimension and different for the 3rd
+            % dimension.
             
             pos = obj.parsePos(pos);
             
@@ -90,6 +118,7 @@ classdef asMarkerClass < handle
         end
         
         function pos = get(obj)
+            % get pixel marer positions
             pos = obj.pos;
         end
         
@@ -268,7 +297,7 @@ classdef asMarkerClass < handle
             end
         end
         
-        function markerHandles = drawAtAxes(obj, ah, pos)
+        function markerHandles = drawAtAxes(~, ah, pos)
             nMarkersPerAxes = size(pos,2);
             markerHandles = cell(nMarkersPerAxes,1);
             for i = 1 : nMarkersPerAxes
@@ -286,11 +315,16 @@ classdef asMarkerClass < handle
         end
         
         function pos = parsePos(obj, pos, expectedNumel)
-            % checks if the position vector matches the expected format.
-            % If pos is a cell array and expectedNumel is empty, the array
-            % is checked to match the data dimension.
-            % If expectedNumel is give, the pos array is just checkt for
-            % the correct number of elements.
+            % checks if the position vector matches the expected format. If
+            % pos is a cell array and expectedNumel is empty, the array is
+            % checked to match the data dimension. If expectedNumel is
+            % given, the pos array is just checkt for the correct number of
+            % elements.
+            %
+            % If pos is a cell vector, its length is checked against the
+            % size of the different data dimensions and reshaped to fit the
+            % first match. E.g. If the data dimensions are 128x128x20x30
+            % and size(pos) = 20x1 or 1x20, pos is reshaped to 1x1x20x1.
             
             if iscell(pos)
                 if nargin > 2 && ~isempty(expectedNumel)
@@ -306,9 +340,28 @@ classdef asMarkerClass < handle
                     lDat = length(dataDims);
 
                     if lPos < lDat
-                        % padd all non given trailing dims with 1 to
-                        % get equal siPos und dataDims vector size
-                        siPos = [siPos, ones(1,lDat - lPos)];
+                        % ok, the dimensions of the data and the position cell
+                        % array are not equal. Check, if pos is a vector
+                        % and can be matched with any of the data
+                        % dimensions
+                        if isvector(pos)
+                            matchingDims = find(dataDims == numel(pos));
+                            if isempty(matchingDims)
+                                error('Marker position vector has invalid dimensions');
+                            end
+                            
+                            % define a new position matrix size with the
+                            % elements put into the first matching dim
+                            siPos = ones(1,lDat);
+                            siPos(matchingDims(1)) = numel(pos);
+                            pos = reshape(pos,siPos);
+                        else
+                            % pos is neither a vector nor does it have the
+                            % same number of dimensions as the data dims.
+                            % Try to padd all non given trailing dims with
+                            % 1 to get equal siPos und dataDims vector size
+                            siPos = [siPos, ones(1,lDat - lPos)];
+                        end
                     end
 
                     % define all dimensions with size == 1 as
@@ -322,19 +375,7 @@ classdef asMarkerClass < handle
                     % are 1
                     if length(unequalDims) > length(obj.ignoredDimensions)||...
                         any(unequalDims ~= obj.ignoredDimensions)
-                        % ok, the dimensions of the data and the position cell
-                        % array are not equal. Check for the special case,
-                        % where the position cell array is a vector and the
-                        % data is 3d and thus can be assumed to be a stack of
-                        % images...
-                        if isvector(pos) && ...
-                                length(dataDims) == 3 &&...
-                                dataDims(3) == numel(pos)
-                            pos = reshape(pos,[1,1,numel(pos)]);
-                            obj.ignoredDimensions = [1,2];
-                        else
-                            error('Marker position vector has invalid dimensions');
-                        end                                                                        
+                        error('Marker position vector has invalid dimensions');                        
                     end
                 end
                 
