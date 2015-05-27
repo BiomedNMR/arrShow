@@ -3,16 +3,15 @@ classdef asMarkerClass < handle
     % pixel positions in different slices. Its main intention is to
     % highlight critical image regions which may contain automatically
     % detected image reconstruction errors etc. It can also be used to
-    % highlight general pixels of interest as the e.g. max or mean.
+    % highlight general pixels of interest. The markers are automatically
+    % redrawn if the selected image changes.
     %
     % Pixel markers can be added for either all slices (by calling the .set
     % or .add method with a matrix of pixel positions) or for individual
     % slices (by calling the .set or .add method with a cell array of
-    % matrices of pixel positions, or by calling the .setInCurrentFrame
+    % matrices of pixel positions, or by calling the .setInCurrentFrames
     % method)
     %
-    % The markers in the currently selected frame are drawn using the .draw
-    % method, which is called during the arrayShow updFig method.
     
     properties (Access = private)
         pos = [];   % marker positions
